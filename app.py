@@ -273,4 +273,21 @@ with tab4:
         ])
     ]
     
-    for title, score, rule
+    for title, score, rule, desc, imgs in guide_items:
+        with st.expander(f"{title} - [{score}]", expanded=True):
+            col_a, col_b = st.columns([1, 2])
+            with col_a:
+                st.markdown(f"**🎯 점수**: `{score}`")
+                st.markdown(f"**👥 등장 조건**: `{rule}`")
+                
+                if imgs:
+                    for base_img_name, label in imgs:
+                        found_path = get_existing_image_path(base_img_name)
+                        if found_path:
+                            col_g_img, _ = st.columns([8, 2])
+                            with col_g_img:
+                                st.image(found_path, caption=label, use_container_width=True)
+                        else:
+                            st.warning(f"⚠️ 이미지 파일('{base_img_name}') 없음")
+            with col_b:
+                st.markdown(f"**📖 미션 설명**: {desc}")
