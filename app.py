@@ -2,11 +2,10 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
-import json
 import base64
 
 # ---------------------------------------------------------
-# 1. 페이지 설정 및 디자인 스타일 지정
+# 1. 페이지 설정
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="경복궁 산책 미션 스코어보드",
@@ -14,29 +13,18 @@ st.set_page_config(
     layout="wide"
 )
 
-SUBMISSIONS_FILE = "submissions.json"
-
 # ---------------------------------------------------------
-# 2. 데이터 저장/불러오기 함수 (공유 파일 방식)
+# 2. 전역 중앙 공유 데이터 서버 설정 (모든 기기 실시간 동기화)
 # ---------------------------------------------------------
-def load_submissions():
-    if os.path.exists(SUBMISSIONS_FILE):
-        try:
-            with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return []
+@st.cache_resource
+def get_global_submissions():
+    # 모든 사용자가 공유하는 전역 데이터 리스트
     return []
 
-def save_submissions(submissions_list):
-    try:
-        with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
-            json.dump(submissions_list, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        st.error(f"저장 중 오류 발생: {e}")
+submissions = get_global_submissions()
 
 # ---------------------------------------------------------
-# 3. 파일 존재 여부 안전 확인 함수 (대소문자 확장자 대응)
+# 3. 파일 존재 여부 안전 확인 함수
 # ---------------------------------------------------------
 def get_existing_image_path(base_name):
     for ext in [".png", ".PNG", ".jpg", ".JPG", ".jpeg", ".JPEG"]:
@@ -104,23 +92,23 @@ st.markdown("""
 모든 미션 인증 사진에는 **7명 팀원 전원**이 나와야 인정됩니다. (단, **내 띠 동물 미션만 해당 띠 팀원 1명 + 석상 촬영**)
 """)
 
-# 새로고침 버튼 제공
-if st.button("🔄 실시간 점수 새로고침"):
-    st.rerun()
+col_top1, col_top2 = st.columns([1, 4])
+with col_top1:
+    if st.button("🔄 실시간 점수 동기화"):
+        st.rerun()
 
 st.divider()
 
 # ---------------------------------------------------------
 # 6. 탭 구성
 # ---------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 실시간 스코어보드", 
     "📸 미션 사진 제출", 
     "🖼️ 전체 제출 현황", 
-    "📜 전체 미션 안내"
+    "📜 전체 미션 안내",
+    "⚙️ 점수 초기화(관리자)"
 ])
-
-submissions = load_submissions()
 
 # ---------------------------------------------------------
 # TAB 1: 실시간 스코어보드
@@ -208,7 +196,6 @@ with tab2:
                 if already_submitted:
                     st.warning(f"⚠️ 이미 [{selected_team}]에서 [{selected_mission}] 미션을 제출했습니다!")
                 else:
-                    # 이미지 파일을 base64 문자열로 인코딩하여 저장
                     file_bytes = uploaded_file.read()
                     encoded_img = base64.b64encode(file_bytes).decode("utf-8")
                     
@@ -221,7 +208,6 @@ with tab2:
                         "time": datetime.now().strftime("%H:%M:%S")
                     }
                     submissions.append(new_sub)
-                    save_submissions(submissions)
                     st.success(f"🎉 [{selected_team}] [{selected_mission}] 인증 완료! ({mission_score}점 획득)")
                     st.rerun()
 
@@ -267,27 +253,4 @@ with tab4:
             ("IMG_6869", "📸 사극 패러디 예시 2"),
             ("IMG_6870", "📸 사극 패러디 예시 3")
         ]),
-        ("🐉 4. 내 띠 동물(또는 해태) 석상 찾기", "10점 × 최대 4회 (총 40점)", "💡 [예외] 해당 띠 팀원 1명 + 석상 2인 촬영", "근정전 난간의 12지신 석상 중 자신의 띠에 해당하는 동물 석상을 찾으세요. (개/돼지띠는 해태 석상) 팀당 최대 4명까지, 해당 띠 주인공과 석상 2인 촬영으로 제출합니다.\n\n🔗 **[💡 십이지상 위치 및 참고 가이드 블로그 보기](https://blog.naver.com/roadgrapher_rilla/223718165750)**", []),
-        ("🪷 5. 향원정 베스트 뷰 포인트 사진", "10점 (1회)", "팀원 7명 전원 등장 필수", "향원정과 연못, 다리가 가장 고즈넉하게 어우러지는 베스트 구도를 조원들과 힘을 합쳐 담아 주세요.", [
-            ("IMG_6871", "📸 향원정 베스트 뷰 예시")
-        ])
-    ]
-    
-    for title, score, rule, desc, imgs in guide_items:
-        with st.expander(f"{title} - [{score}]", expanded=True):
-            col_a, col_b = st.columns([1, 2])
-            with col_a:
-                st.markdown(f"**🎯 점수**: `{score}`")
-                st.markdown(f"**👥 등장 조건**: `{rule}`")
-                
-                if imgs:
-                    for base_img_name, label in imgs:
-                        found_path = get_existing_image_path(base_img_name)
-                        if found_path:
-                            col_g_img, _ = st.columns([8, 2])
-                            with col_g_img:
-                                st.image(found_path, caption=label, use_container_width=True)
-                        else:
-                            st.warning(f"⚠️ 이미지 파일('{base_img_name}') 없음")
-            with col_b:
-                st.markdown(f"**📖 미션 설명**: {desc}")
+        ("🐉 4. 내 띠 동물(또는 해태) 석상 찾기", "10점 × 최대 4회 (총 40점)", "💡 [예외] 해당 띠 팀원 1명 + 석상 2인 촬영", "근정전 난
