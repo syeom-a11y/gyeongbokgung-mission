@@ -13,7 +13,21 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# 2. 데이터 초기화 (세션 상태 관리)
+# 2. 파일 존재 여부 안전 확인 함수 (대소문자 확장자 대응)
+# ---------------------------------------------------------
+def get_existing_image_path(base_name):
+    """
+    IMG_6862.png, IMG_6862.PNG, IMG_6862.jpeg 등 
+    대소문자 확장자 차이로 이미지를 찾지 못하는 현상을 방지합니다.
+    """
+    for ext in [".png", ".PNG", ".jpg", ".JPG", ".jpeg", ".JPEG"]:
+        full_path = f"{base_name}{ext}"
+        if os.path.exists(full_path):
+            return full_path
+    return None
+
+# ---------------------------------------------------------
+# 3. 데이터 초기화 (세션 상태 관리)
 # ---------------------------------------------------------
 TEAMS = ["1조", "2조", "3조", "4조"]
 
@@ -48,27 +62,27 @@ MISSION_DESCRIPTIONS = {
     "🪷 향원정 베스트 뷰 포인트 사진": "📷 **[조건]** 경복궁의 아름다운 향원정과 연못이 가장 돋보이는 뷰 포인트에서 조원 7명 전원이 나와 촬영해 주세요."
 }
 
-# 로컬 이미지 파일 매핑
+# 새로 변경된 모바일 업로드 이미지 파일명 매핑 (IMG_6862 ~ IMG_6871)
 MISSION_IMAGES = {
-    "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (1번)": [("image_0.png", "📸 장소 1번")],
-    "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (2번)": [("image_1.png", "📸 장소 2번")],
-    "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (3번)": [("image_2.png", "📸 장소 3번")],
-    "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (4번)": [("image_3.png", "📸 장소 4번")],
-    "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (5번)": [("image_4.png", "📸 장소 5번")],
-    "🏃‍♂️ 경회루 배경으로 7명 전원 점프샷": [("image_5.png", "📸 경회루 점프샷 예시")],
+    "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (1번)": [("IMG_6862", "📸 장소 1번")],
+    "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (2번)": [("IMG_6863", "📸 장소 2번")],
+    "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (3번)": [("IMG_6864", "📸 장소 3번")],
+    "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (4번)": [("IMG_6865", "📸 장소 4번")],
+    "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (5번)": [("IMG_6866", "📸 장소 5번")],
+    "🏃‍♂️ 경회루 배경으로 7명 전원 점프샷": [("IMG_6867", "📸 경회루 점프샷 예시")],
     "🎭 드라마 한 장면 재현": [
-        ("image_6.png", "📸 사극 패러디 예시 1"),
-        ("image_7.png", "📸 사극 패러디 예시 2"),
-        ("image_8.png", "📸 사극 패러디 예시 3")
+        ("IMG_6868", "📸 사극 패러디 예시 1"),
+        ("IMG_6869", "📸 사극 패러디 예시 2"),
+        ("IMG_6870", "📸 사극 패러디 예시 3")
     ],
-    "🪷 향원정 베스트 뷰 포인트 사진": [("image_9.png", "📸 향원정 베스트 뷰 예시")]
+    "🪷 향원정 베스트 뷰 포인트 사진": [("IMG_6871", "📸 향원정 베스트 뷰 예시")]
 }
 
 if "submissions" not in st.session_state:
     st.session_state["submissions"] = []
 
 # ---------------------------------------------------------
-# 3. 메인 레이아웃 및 헤더
+# 4. 메인 레이아웃 및 헤더
 # ---------------------------------------------------------
 st.title("🏯 경복궁 팀 미션 스코어보드")
 st.markdown("""
@@ -78,7 +92,7 @@ st.markdown("""
 st.divider()
 
 # ---------------------------------------------------------
-# 4. 탭 구성
+# 5. 탭 구성
 # ---------------------------------------------------------
 tab1, tab2, tab3, tab4 = st.tabs([
     "📊 실시간 스코어보드", 
@@ -146,13 +160,14 @@ with tab2:
     
     if selected_mission in MISSION_IMAGES:
         img_list = MISSION_IMAGES[selected_mission]
-        for img_path, label in img_list:
-            if os.path.exists(img_path):
+        for base_img_name, label in img_list:
+            found_path = get_existing_image_path(base_img_name)
+            if found_path:
                 col_img, _ = st.columns([7, 3])
                 with col_img:
-                    st.image(img_path, caption=label, use_container_width=True)
+                    st.image(found_path, caption=label, use_container_width=True)
             else:
-                st.warning(f"⚠️ 가이드 이미지 파일('{img_path}')을 폴더에서 찾을 수 없습니다.")
+                st.warning(f"⚠️ 가이드 이미지 파일('{base_img_name}')을 업로드 폴더에서 찾을 수 없습니다.")
 
     with st.form("mission_upload_form", clear_on_submit=True):
         uploaded_file = st.file_uploader("인증 사진을 첨부하세요 (JPG, PNG)", type=["jpg", "jpeg", "png"])
@@ -210,23 +225,23 @@ with tab4:
     
     guide_items = [
         ("📍 1. [장소 찾기] 지정된 장소/건물 찾아 똑같이 찍기", "20점 × 5개 (총 100점)", "팀원 7명 전원 등장 필수", "제공된 가이드 사진 속 5개 장소를 경복궁 안에서 직접 찾아내어 동일한 구도로 촬영해야 합니다.", [
-            ("image_0.png", "📸 장소 1번"),
-            ("image_1.png", "📸 장소 2번"),
-            ("image_2.png", "📸 장소 3번"),
-            ("image_3.png", "📸 장소 4번"),
-            ("image_4.png", "📸 장소 5번")
+            ("IMG_6862", "📸 장소 1번"),
+            ("IMG_6863", "📸 장소 2번"),
+            ("IMG_6864", "📸 장소 3번"),
+            ("IMG_6865", "📸 장소 4번"),
+            ("IMG_6866", "📸 장소 5번")
         ]),
         ("🏃‍♂️ 2. 경회루 배경으로 7명 전원 점프샷", "50점 (1회)", "팀원 7명 전원 등장 필수", "경회루와 연못을 한 화면에 담으며 조원 7명의 발이 동시에 지상에서 떨어져 뛰어오르는 모습을 순간 포착하세요!", [
-            ("image_5.png", "📸 경회루 점프샷 예시")
+            ("IMG_6867", "📸 경회루 점프샷 예시")
         ]),
         ("🎭 3. 드라마 한 장면 재현", "50점 (1회)", "팀원 7명 전원 등장 필수", "한 조원이 왕처럼 근정전 난간(월대) 위로 오르고, 나머지 6명의 신하들이 아래에서 사극처럼 만세를 부르는 장면을 연출해 보세요.", [
-            ("image_6.png", "📸 사극 패러디 예시 1"),
-            ("image_7.png", "📸 사극 패러디 예시 2"),
-            ("image_8.png", "📸 사극 패러디 예시 3")
+            ("IMG_6868", "📸 사극 패러디 예시 1"),
+            ("IMG_6869", "📸 사극 패러디 예시 2"),
+            ("IMG_6870", "📸 사극 패러디 예시 3")
         ]),
         ("🐉 4. 내 띠 동물(또는 해태) 석상 찾기", "10점 × 최대 4회 (총 40점)", "💡 [예외] 해당 띠 팀원 1명 + 석상 2인 촬영", "근정전 난간의 12지신 석상 중 자신의 띠에 해당하는 동물 석상을 찾으세요. (개/돼지띠는 해태 석상) 팀당 최대 4명까지, 해당 띠 주인공과 석상 2인 촬영으로 제출합니다.\n\n🔗 **[💡 십이지상 위치 및 참고 가이드 블로그 보기](https://blog.naver.com/roadgrapher_rilla/223718165750)**", []),
         ("🪷 5. 향원정 베스트 뷰 포인트 사진", "10점 (1회)", "팀원 7명 전원 등장 필수", "향원정과 연못, 다리가 가장 고즈넉하게 어우러지는 베스트 구도를 조원들과 힘을 합쳐 담아 주세요.", [
-            ("image_9.png", "📸 향원정 베스트 뷰 예시")
+            ("IMG_6871", "📸 향원정 베스트 뷰 예시")
         ])
     ]
     
@@ -238,12 +253,13 @@ with tab4:
                 st.markdown(f"**👥 등장 조건**: `{rule}`")
                 
                 if imgs:
-                    for img_path, label in imgs:
-                        if os.path.exists(img_path):
+                    for base_img_name, label in imgs:
+                        found_path = get_existing_image_path(base_img_name)
+                        if found_path:
                             col_g_img, _ = st.columns([8, 2])
                             with col_g_img:
-                                st.image(img_path, caption=label, use_container_width=True)
+                                st.image(found_path, caption=label, use_container_width=True)
                         else:
-                            st.warning(f"⚠️ 이미지 파일('{img_path}') 없음")
+                            st.warning(f"⚠️ 이미지 파일('{base_img_name}') 없음")
             with col_b:
                 st.markdown(f"**📖 미션 설명**: {desc}")
