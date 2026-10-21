@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+import json
+import base64
 
 # ---------------------------------------------------------
 # 1. 페이지 설정 및 디자인 스타일 지정
@@ -12,14 +14,31 @@ st.set_page_config(
     layout="wide"
 )
 
+SUBMISSIONS_FILE = "submissions.json"
+
 # ---------------------------------------------------------
-# 2. 파일 존재 여부 안전 확인 함수 (대소문자 확장자 대응)
+# 2. 데이터 저장/불러오기 함수 (공유 파일 방식)
+# ---------------------------------------------------------
+def load_submissions():
+    if os.path.exists(SUBMISSIONS_FILE):
+        try:
+            with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_submissions(submissions_list):
+    try:
+        with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(submissions_list, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        st.error(f"저장 중 오류 발생: {e}")
+
+# ---------------------------------------------------------
+# 3. 파일 존재 여부 안전 확인 함수 (대소문자 확장자 대응)
 # ---------------------------------------------------------
 def get_existing_image_path(base_name):
-    """
-    IMG_6862.png, IMG_6862.PNG, IMG_6862.jpeg 등 
-    대소문자 확장자 차이로 이미지를 찾지 못하는 현상을 방지합니다.
-    """
     for ext in [".png", ".PNG", ".jpg", ".JPG", ".jpeg", ".JPEG"]:
         full_path = f"{base_name}{ext}"
         if os.path.exists(full_path):
@@ -27,12 +46,10 @@ def get_existing_image_path(base_name):
     return None
 
 # ---------------------------------------------------------
-# 3. 데이터 초기화 (세션 상태 관리)
+# 4. 데이터 초기화
 # ---------------------------------------------------------
-# 조 이름 변경: 훈조, 민조, 정조, 음조
 TEAMS = ["훈조", "민조", "정조", "음조"]
 
-# 조정된 배점 (총 250점 만점)
 MISSIONS = {
     "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (1번)": 20,
     "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (2번)": 20,
@@ -63,7 +80,6 @@ MISSION_DESCRIPTIONS = {
     "🪷 향원정 베스트 뷰 포인트 사진": "📷 **[조건]** 경복궁의 아름다운 향원정과 연못이 가장 돋보이는 뷰 포인트에서 조원 7명 전원이 나와 촬영해 주세요."
 }
 
-# 모바일 업로드 이미지 파일명 매핑 (IMG_6862 ~ IMG_6871)
 MISSION_IMAGES = {
     "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (1번)": [("IMG_6862", "📸 장소 1번")],
     "📍 [장소 찾기] 지정된 장소/건물 사진 보고 똑같이 찍기 (2번)": [("IMG_6863", "📸 장소 2번")],
@@ -79,21 +95,23 @@ MISSION_IMAGES = {
     "🪷 향원정 베스트 뷰 포인트 사진": [("IMG_6871", "📸 향원정 베스트 뷰 예시")]
 }
 
-if "submissions" not in st.session_state:
-    st.session_state["submissions"] = []
-
 # ---------------------------------------------------------
-# 4. 메인 레이아웃 및 헤더
+# 5. 메인 레이아웃 및 헤더
 # ---------------------------------------------------------
 st.title("🏯 경복궁 팀 미션 스코어보드")
 st.markdown("""
 **[공통 필수 규칙]** 
 모든 미션 인증 사진에는 **7명 팀원 전원**이 나와야 인정됩니다. (단, **내 띠 동물 미션만 해당 띠 팀원 1명 + 석상 촬영**)
 """)
+
+# 새로고침 버튼 제공
+if st.button("🔄 실시간 점수 새로고침"):
+    st.rerun()
+
 st.divider()
 
 # ---------------------------------------------------------
-# 5. 탭 구성
+# 6. 탭 구성
 # ---------------------------------------------------------
 tab1, tab2, tab3, tab4 = st.tabs([
     "📊 실시간 스코어보드", 
@@ -101,6 +119,8 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🖼️ 전체 제출 현황", 
     "📜 전체 미션 안내"
 ])
+
+submissions = load_submissions()
 
 # ---------------------------------------------------------
 # TAB 1: 실시간 스코어보드
@@ -111,7 +131,7 @@ with tab1:
     scores = {team: 0 for team in TEAMS}
     completed_missions = {team: {} for team in TEAMS}
     
-    for sub in st.session_state["submissions"]:
+    for sub in submissions:
         scores[sub["team"]] += sub["score"]
         completed_missions[sub["team"]][sub["mission"]] = sub["score"]
     
@@ -182,21 +202,26 @@ with tab2:
             else:
                 already_submitted = any(
                     sub["team"] == selected_team and sub["mission"] == selected_mission 
-                    for sub in st.session_state["submissions"]
+                    for sub in submissions
                 )
                 
                 if already_submitted:
                     st.warning(f"⚠️ 이미 [{selected_team}]에서 [{selected_mission}] 미션을 제출했습니다!")
                 else:
+                    # 이미지 파일을 base64 문자열로 인코딩하여 저장
+                    file_bytes = uploaded_file.read()
+                    encoded_img = base64.b64encode(file_bytes).decode("utf-8")
+                    
                     new_sub = {
                         "team": selected_team,
                         "mission": selected_mission,
                         "score": mission_score,
-                        "file": uploaded_file,
+                        "image_base64": encoded_img,
                         "comment": comment,
                         "time": datetime.now().strftime("%H:%M:%S")
                     }
-                    st.session_state["submissions"].append(new_sub)
+                    submissions.append(new_sub)
+                    save_submissions(submissions)
                     st.success(f"🎉 [{selected_team}] [{selected_mission}] 인증 완료! ({mission_score}점 획득)")
                     st.rerun()
 
@@ -206,15 +231,17 @@ with tab2:
 with tab3:
     st.subheader("🖼️ 조별 제출 사진 모아보기")
     
-    if len(st.session_state["submissions"]) == 0:
+    if len(submissions) == 0:
         st.info("아직 제출된 미션 인증 사진이 없습니다.")
     else:
-        for sub in reversed(st.session_state["submissions"]):
+        for sub in reversed(submissions):
             with st.expander(f"[{sub['time']}] {sub['team']} - {sub['mission']} ({sub['score']}점)", expanded=True):
                 col_sub_img, _ = st.columns([7, 3])
                 with col_sub_img:
-                    st.image(sub["file"], use_container_width=True)
-                if sub["comment"]:
+                    if "image_base64" in sub:
+                        img_data = base64.b64decode(sub["image_base64"])
+                        st.image(img_data, use_container_width=True)
+                if sub.get("comment"):
                     st.caption(f"💬 {sub['comment']}")
 
 # ---------------------------------------------------------
@@ -246,21 +273,4 @@ with tab4:
         ])
     ]
     
-    for title, score, rule, desc, imgs in guide_items:
-        with st.expander(f"{title} - [{score}]", expanded=True):
-            col_a, col_b = st.columns([1, 2])
-            with col_a:
-                st.markdown(f"**🎯 점수**: `{score}`")
-                st.markdown(f"**👥 등장 조건**: `{rule}`")
-                
-                if imgs:
-                    for base_img_name, label in imgs:
-                        found_path = get_existing_image_path(base_img_name)
-                        if found_path:
-                            col_g_img, _ = st.columns([8, 2])
-                            with col_g_img:
-                                st.image(found_path, caption=label, use_container_width=True)
-                        else:
-                            st.warning(f"⚠️ 이미지 파일('{base_img_name}') 없음")
-            with col_b:
-                st.markdown(f"**📖 미션 설명**: {desc}")
+    for title, score, rule
