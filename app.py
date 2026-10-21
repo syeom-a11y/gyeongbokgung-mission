@@ -253,4 +253,39 @@ with tab4:
             ("IMG_6869", "📸 사극 패러디 예시 2"),
             ("IMG_6870", "📸 사극 패러디 예시 3")
         ]),
-        ("🐉 4. 내 띠 동물(또는 해태) 석상 찾기", "10점 × 최대 4회 (총 40점)", "💡 [예외] 해당 띠 팀원 1명 + 석상 2인 촬영", "근정전 난
+        ("🐉 4. 내 띠 동물(또는 해태) 석상 찾기", "10점 × 최대 4회 (총 40점)", "💡 [예외] 해당 띠 팀원 1명 + 석상 2인 촬영", "근정전 난간의 12지신 석상 중 자신의 띠에 해당하는 동물 석상을 찾으세요. (개/돼지띠는 해태 석상) 팀당 최대 4명까지, 해당 띠 주인공과 석상 2인 촬영으로 제출합니다.\n\n🔗 **[💡 십이지상 위치 및 참고 가이드 블로그 보기](https://blog.naver.com/roadgrapher_rilla/223718165750)**", []),
+        ("🪷 5. 향원정 베스트 뷰 포인트 사진", "10점 (1회)", "팀원 7명 전원 등장 필수", "향원정과 연못, 다리가 가장 고즈넉하게 어우러지는 베스트 구도를 조원들과 힘을 합쳐 담아 주세요.", [
+            ("IMG_6871", "📸 향원정 베스트 뷰 예시")
+        ])
+    ]
+    
+    for title, score, rule, desc, imgs in guide_items:
+        with st.expander(f"{title} - [{score}]", expanded=True):
+            col_a, col_b = st.columns([1, 2])
+            with col_a:
+                st.markdown(f"**🎯 점수**: `{score}`")
+                st.markdown(f"**👥 등장 조건**: `{rule}`")
+                
+                if imgs:
+                    for base_img_name, label in imgs:
+                        found_path = get_existing_image_path(base_img_name)
+                        if found_path:
+                            col_g_img, _ = st.columns([8, 2])
+                            with col_g_img:
+                                st.image(found_path, caption=label, use_container_width=True)
+                        else:
+                            st.warning(f"⚠️ 이미지 파일('{base_img_name}') 없음")
+            with col_b:
+                st.markdown(f"**📖 미션 설명**: {desc}")
+
+# ---------------------------------------------------------
+# TAB 5: 관리자 전용 데이터 초기화 탭 (0점으로 리셋)
+# ---------------------------------------------------------
+with tab5:
+    st.subheader("⚙️ 점수 및 제출 내역 초기화")
+    st.caption("테스트 완료 후 내일 본 행사를 위해 전체 점수를 0점으로 리셋하는 관리자 기능입니다.")
+    
+    if st.button("🚨 제출 기록 전체 초기화 (0점으로 리셋)", type="primary"):
+        submissions.clear()
+        st.success("✅ 제출 기록이 성공적으로 삭제되었습니다! 모든 조가 0점으로 리셋되었습니다.")
+        st.rerun()
