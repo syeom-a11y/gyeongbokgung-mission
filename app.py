@@ -13,12 +13,14 @@ st.set_page_config(
     layout="wide"
 )
 
+# 🔑 관리자 비밀번호 설정 (원하시는 비밀번호로 변경하세요)
+ADMIN_PASSWORD = "22016202"
+
 # ---------------------------------------------------------
 # 2. 전역 중앙 데이터 관리 (승인 상태 관리)
 # ---------------------------------------------------------
 @st.cache_resource
 def get_global_submissions():
-    # 제출 항목: { "id", "team", "mission", "score", "image_base64", "comment", "time", "status": "pending" | "approved" | "rejected", "reject_reason" }
     return []
 
 submissions = get_global_submissions()
@@ -113,7 +115,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 실시간 스코어보드 (승인된 항목만 점수 계산)
+# TAB 1: 실시간 스코어보드
 # ---------------------------------------------------------
 with tab1:
     st.subheader("🏆 조별 실시간 순위 및 점수")
@@ -121,7 +123,6 @@ with tab1:
     scores = {team: 0 for team in TEAMS}
     completed_missions = {team: {} for team in TEAMS}
     
-    # status == 'approved' 인 경우에만 점수 반영
     for sub in submissions:
         if sub["status"] == "approved":
             scores[sub["team"]] += sub["score"]
@@ -192,7 +193,6 @@ with tab2:
             if uploaded_file is None:
                 st.error("사진을 첨부해야 제출이 가능합니다!")
             else:
-                # 이미 승인되었거나 심사 대기 중인 항목인지 확인
                 already_exists = any(
                     sub["team"] == selected_team and sub["mission"] == selected_mission and sub["status"] in ["approved", "pending"]
                     for sub in submissions
@@ -220,7 +220,7 @@ with tab2:
                     st.rerun()
 
 # ---------------------------------------------------------
-# TAB 3: 전체 제출 현황 (상태별 표시)
+# TAB 3: 전체 제출 현황
 # ---------------------------------------------------------
 with tab3:
     st.subheader("🖼️ 조별 제출 사진 모아보기")
@@ -295,48 +295,56 @@ with tab4:
                 st.markdown(f"**📖 미션 설명**: {desc}")
 
 # ---------------------------------------------------------
-# TAB 5: 관리자 심사 및 점수 리셋 탭
+# TAB 5: 관리자 심사 (비밀번호 보호 적용)
 # ---------------------------------------------------------
 with tab5:
-    st.subheader("👑 관리자 인증사진 심사 센터")
-    st.caption("제출된 인증샷을 검토하고 승인/반려 처리를 진행할 수 있습니다.")
+    st.subheader("👑 관리자 전용 심사 센터")
     
-    pending_submissions = [s for s in submissions if s["status"] == "pending"]
+    # 비밀번호 입력 폼
+    input_pwd = st.text_input("관리자 비밀번호를 입력하세요", type="password")
     
-    if len(pending_submissions) == 0:
-        st.success("🎉 현재 심사 대기 중인 제출 내역이 없습니다.")
-    else:
-        st.warning(f"총 {len(pending_submissions)}건의 미션 인증샷이 승인을 기다리고 있습니다.")
-        for sub in pending_submissions:
-            st.markdown(f"### 🚩 [{sub['team']}] {sub['mission']} ({sub['score']}점)")
-            st.caption(f"제출 시간: {sub['time']}")
-            
-            col_review_img, col_review_btn = st.columns([6, 4])
-            with col_review_img:
-                if "image_base64" in sub:
-                    img_data = base64.b64decode(sub["image_base64"])
-                    st.image(img_data, use_container_width=True)
-                if sub.get("comment"):
-                    st.caption(f"💬 소감: {sub['comment']}")
-                    
-            with col_review_btn:
-                st.write("---")
-                if st.button(f"✅ [{sub['team']}] 점수 인정 (승인)", key=f"app_{sub['id']}", type="primary"):
-                    sub["status"] = "approved"
-                    st.success("승인 완료! 점수가 스코어보드에 반영되었습니다.")
-                    st.rerun()
+    if input_pwd == ADMIN_PASSWORD:
+        st.success("🔓 관리자 인증이 완료되었습니다.")
+        st.caption("제출된 인증샷을 검토하고 승인/반려 처리를 진행할 수 있습니다.")
+        
+        pending_submissions = [s for s in submissions if s["status"] == "pending"]
+        
+        if len(pending_submissions) == 0:
+            st.info("🎉 현재 심사 대기 중인 제출 내역이 없습니다.")
+        else:
+            st.warning(f"총 {len(pending_submissions)}건의 미션 인증샷이 승인을 기다리고 있습니다.")
+            for sub in pending_submissions:
+                st.markdown(f"### 🚩 [{sub['team']}] {sub['mission']} ({sub['score']}점)")
+                st.caption(f"제출 시간: {sub['time']}")
                 
-                reject_reason = st.text_input("반려 사유 (선택)", key=f"reason_{sub['id']}")
-                if st.button(f"❌ 반려하기 (재제출 필요)", key=f"rej_{sub['id']}"):
-                    sub["status"] = "rejected"
-                    sub["reject_reason"] = reject_reason if reject_reason else "사진 구도 미흡 / 팀원 인원 미달"
-                    st.error("반려 처리되었습니다.")
-                    st.rerun()
-            st.divider()
+                col_review_img, col_review_btn = st.columns([6, 4])
+                with col_review_img:
+                    if "image_base64" in sub:
+                        img_data = base64.b64decode(sub["image_base64"])
+                        st.image(img_data, use_container_width=True)
+                    if sub.get("comment"):
+                        st.caption(f"💬 소감: {sub['comment']}")
+                        
+                with col_review_btn:
+                    st.write("---")
+                    if st.button(f"✅ [{sub['team']}] 점수 인정 (승인)", key=f"app_{sub['id']}", type="primary"):
+                        sub["status"] = "approved"
+                        st.success("승인 완료! 점수가 스코어보드에 반영되었습니다.")
+                        st.rerun()
+                    
+                    reject_reason = st.text_input("반려 사유 (선택)", key=f"reason_{sub['id']}")
+                    if st.button(f"❌ 반려하기 (재제출 필요)", key=f"rej_{sub['id']}"):
+                        sub["status"] = "rejected"
+                        sub["reject_reason"] = reject_reason if reject_reason else "사진 구도 미흡 / 팀원 인원 미달"
+                        st.error("반려 처리되었습니다.")
+                        st.rerun()
+                st.divider()
 
-    st.write("---")
-    st.subheader("⚙️ 시스템 관리")
-    if st.button("🚨 제출 기록 전체 초기화 (0점으로 리셋)", type="secondary"):
-        submissions.clear()
-        st.success("✅ 모든 제출 기록이 삭제되었습니다.")
-        st.rerun()
+        st.write("---")
+        st.subheader("⚙️ 시스템 관리")
+        if st.button("🚨 제출 기록 전체 초기화 (0점으로 리셋)", type="secondary"):
+            submissions.clear()
+            st.success("✅ 모든 제출 기록이 삭제되었습니다.")
+            st.rerun()
+    elif input_pwd != "":
+        st.error("❌ 비밀번호가 올바르지 않습니다.")
